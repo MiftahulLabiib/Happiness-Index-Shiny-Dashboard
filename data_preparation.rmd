@@ -1,0 +1,198 @@
+---
+title: "data_preparation"
+output: html_document
+date: "2023-05-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# import library
+library(dplyr) 
+library(plotly) 
+library(glue) 
+library(scales) 
+library(tidyr) 
+library(lubridate)
+library(ggplot2)
+library(stringr)
+```
+
+
+
+```{r}
+#read data
+happines_data<-read.csv("2015.csv")
+head(happines_data)
+```
+```{r}
+#check data type
+glimpse(happines_data)
+```
+```{r}
+colSums(is.na(happines_data))
+```
+
+```{r}
+theme_algoritma <- theme(legend.key = element_rect(fill="black"),
+           legend.background = element_rect(color="white", fill="#263238"),
+           plot.subtitle = element_text(size=6, color="white"),
+           panel.background = element_rect(fill="#dddddd"),
+           panel.border = element_rect(fill=NA),
+           panel.grid.minor.x = element_blank(),
+           panel.grid.major.x = element_blank(),
+           panel.grid.major.y = element_line(color="darkgrey", linetype=2), 
+           panel.grid.minor.y = element_blank(),
+           plot.background = element_rect(fill="#263238"),
+           text = element_text(color="white"),
+           axis.text = element_text(color="white")
+           )
+```
+
+Question:
+Wilayah yang memiliki rata-rata happiness index tertinggi pada tahun 2015?
+
+```{r}
+#Data Aggregation
+region_rank <- happines_data %>% 
+  group_by(Region) %>% 
+  summarise(avarage_index= mean(Happiness.Score))
+```
+
+```{r}
+#Data visualization
+region_rank_viz<-region_rank %>% 
+  ggplot(mapping = aes(x= avarage_index, 
+                       y= reorder(Region, avarage_index),
+                       text= glue("Avarage Index: {round(avarage_index,3)}
+                                  Region: {Region}")))+
+  geom_col(fill="#1D267D")+
+  scale_y_discrete(labels= wrap_format(width = 20))+
+  labs(title = "Avarage Happiness Index by Region in 2015",
+       x="Avarage Happiness Index",
+       y=NULL)+
+  theme_algoritma
+```
+
+```{r}
+ggplotly(region_rank_viz, tooltip = "text")
+```
+
+```{r}
+Correlation<-happines_data %>% 
+  ggplot(mapping = aes(x= Happiness.Score, 
+                       y= Economy..GDP.per.Capita.))+
+  geom_point(aes(col= Region,
+                 size= Happiness.Score, 
+             text= glue("Region : {Region}
+                        Happiness Score : {Happiness.Score}
+                        GDP per Capita : {Economy..GDP.per.Capita.}")))+
+  geom_smooth()+
+  labs(title = "Correlation between GDP per Capita and Happiness Score",
+       x= "Happiness Score",
+       y= "GDP per Capita")+
+  theme_algoritma+
+  theme(legend.position = "none")
+```
+
+```{r}
+ggplotly(Correlation, tooltip = "text")
+```
+
+
+```{r}
+mapdata<- map_data("world")
+region_data <- happines_data %>%
+  select(Country, Happiness.Score)
+
+mapdata <- inner_join(mapdata, region_data, by = c("region" = "Country"))
+mapdata1<-mapdata %>% 
+  filter(!is.na(Happiness.Score))
+mapdata1
+```
+
+```{r}
+map1<-mapdata1 %>% 
+  ggplot(mapping = aes(x= long, 
+                       y= lat, 
+                       group= group,
+                       text= glue("{region}
+                                  Happiness Score : {Happiness.Score}")))+
+  geom_polygon(aes(fill= Happiness.Score))+
+  labs(title = "Happiness Index per Country",
+       x= NULL,
+       y=NULL,
+       fill= "Happiness Score")+
+  theme(
+    panel.background = element_rect(fill = "gray", color = "black", linewidth = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    legend.background = element_blank()
+  )
+```
+
+```{r}
+ggplotly(map1, tooltip = "text")
+```
+
+
+```{r}
+data_dist<-happines_data %>% 
+  filter(Country=="Afghanistan") %>% 
+  select(Economy..GDP.per.Capita., Family, Health..Life.Expectancy., Freedom, Trust..Government.Corruption., Generosity, Dystopia.Residual ) %>% 
+  pivot_longer(cols = c("Economy..GDP.per.Capita.", "Family", "Health..Life.Expectancy.", "Freedom", "Trust..Government.Corruption.", "Generosity", "Dystopia.Residual")) %>% 
+  mutate(name = gsub("\\.", " ", name))
+data_dist
+
+```
+
+```{r}
+#library(stringr)
+aspect<-data_dist %>%
+  ggplot(mapping = aes(x = name, 
+                       y = value, 
+                       fill = name,
+                       text= glue("{name} : {value}"))) +
+  geom_col(width = 1) +
+  
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = "Aspect To Measure Happiness Index", y = NULL, fill= "Aspect")
+```
+
+```{r}
+ggplotly(aspect, tooltip = "text")
+```
+
+```{r}
+country_gdp<-happines_data %>% 
+  filter(Region=="Western Europe") %>% 
+  select(Country,Economy..GDP.per.Capita.) %>% 
+  ggplot(aes(x= reorder(Country, Economy..GDP.per.Capita.), 
+             y=Economy..GDP.per.Capita.,
+             text= glue("GDP per Capita: {Economy..GDP.per.Capita.}")))+
+  geom_col(fill="#068DA9")+
+  labs(title = "Country's GDP per Capita",
+       x=NULL,
+       y="GDP per Capita")+
+  theme(axis.text.x = element_text(angle = 75, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+  
+
+```
+
+```{r}
+ggplotly(country_gdp, tooltip = "text")
+```
+
+
+```{r}
+str_to_title(gsub("\\.", " ", names(subset(happines_data, select = sapply(happines_data, is.numeric) & !names(happines_data) %in% c("Happiness.Rank", "Happiness.Score", "Standard.Error")))))
+```
+```{r}
+gsub("\\.", " ",names(subset(happines_data, select = sapply(happines_data, is.numeric) & !names(happines_data) %in% c("Happiness.Rank", "Happiness.Score", "Standard.Error"))))
+```
+
